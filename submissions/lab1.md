@@ -94,7 +94,7 @@ Header classification:
   - Title follows `feat(labN): <topic>`
   - No secrets or large temp files committed
   - `submissions/labN.md` exists
-- Draft PR proof: REPLACE BEFORE SUBMISSION with a draft PR link or screenshot showing the auto-filled description.
+- Draft PR proof: https://github.com/ViAlexiV/DevSecOps-Intro/pull/1
 
 ## GitHub community
 
