@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: juice-shop
+  namespace: juice-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: juice-shop
+  template:
+    metadata:
+      labels:
+        app: juice-shop
+    spec:
+      serviceAccountName: juice-shop
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: seed-writable-dirs
+          image: bkimminich/juice-shop@sha256:fd58bdc9745416afce8184ee0666278a436574633ea7880365153a63bfd418b0
+          command: ["/nodejs/bin/node", "-e"]
+          args:
+            - |
+              const fs = require('node:fs');
+              const dirs = {
+                data: 'data',
+                logs: 'logs',
+                ftp: 'ftp',
+                i18n: 'i18n',
+                frontend: 'frontend/dist/frontend',
+                csaf: '.well-known/csaf'
+              };
+              for (const [name, path] of Object.entries(dirs)) {
+                fs.cpSync('/juice-shop/' + path, '/runtime/' + name, {
+                  recursive: true
+                });
+                console.log('Copied ' + path);
+              }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: runtime
+              mountPath: /runtime
+      containers:
+        - name: juice-shop
+          image: bkimminich/juice-shop@sha256:fd58bdc9745416afce8184ee0666278a436574633ea7880365153a63bfd418b0
+          ports:
+            - name: http
+              containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: runtime
+              mountPath: /juice-shop/data
+              subPath: data
+            - name: runtime
+              mountPath: /juice-shop/logs
+              subPath: logs
+            - name: runtime
+              mountPath: /juice-shop/ftp
+              subPath: ftp
+            - name: runtime
+              mountPath: /juice-shop/i18n
+              subPath: i18n
+            - name: runtime
+              mountPath: /juice-shop/frontend/dist/frontend
+              subPath: frontend
+            - name: runtime
+              mountPath: /juice-shop/.well-known/csaf
+              subPath: csaf
+      volumes:
+        - name: runtime
+          emptyDir: {}
