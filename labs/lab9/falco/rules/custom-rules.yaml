@@ -1,0 +1,23 @@
+- rule: Write to /tmp by container
+  desc: Detect a file opened for writing under /tmp inside a container
+  condition: open_write and container.id != host and fd.name startswith /tmp/
+  output: "Container /tmp write (container=%container.name user=%user.name file=%fd.name command=%proc.cmdline)"
+  priority: WARNING
+  tags: [container, drift]
+
+- rule: Possible Cryptominer Activity
+  desc: Detect miner-like processes or lab netcat attempting connections to common mining ports
+  condition: >
+    evt.type=connect and container.id != host
+    and proc.name in (xmrig, ethminer, cgminer, nc)
+    and (
+      fd.sport in (3333, 4444, 5555, 7777, 14444)
+      or evt.arg.addr endswith ":3333"
+      or evt.arg.addr endswith ":4444"
+      or evt.arg.addr endswith ":5555"
+      or evt.arg.addr endswith ":7777"
+      or evt.arg.addr endswith ":14444"
+    )
+  output: "Possible mining connection (container=%container.name process=%proc.name command=%proc.cmdline destination=%evt.arg.addr result=%evt.arg.res)"
+  priority: CRITICAL
+  tags: [container, mitre_execution, mitre_command_and_control]
